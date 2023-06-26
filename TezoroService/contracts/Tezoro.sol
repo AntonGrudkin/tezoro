@@ -8,9 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract Tezoro {
     using SafeERC20 for ERC20;
 
-    uint8 public constant version = 2;
+    uint8 public constant version = 3;
 
     address private immutable creator;
+    address public immutable executor1;
+    address public immutable executor2;
     address public immutable tokenAddress;
     address public immutable owner;
     address public immutable beneficiary;
@@ -28,24 +30,18 @@ contract Tezoro {
     error ZeroTransferAmount();
     error CouldNotAbortRestoration();
     error IllegalStateChange();
+    error IllegalExecutorStateChange();
     error ZeroAddress();
     error ZeroDelay();
 
     event Restored();
     event StateChanged(uint8 state);
 
-    /**
-    * @dev Throws if called by any account other than the owner or creator.
-    */
-    modifier isOwnerOrCreator() {
-        if (msg.sender != creator && msg.sender != owner)
-            revert NotOwnerOrCreator();
-        _;
-    }
-
     constructor(
         address _creatorAddress,
         address _ownerAddress,
+        address _executor1,
+        address _executor2,
         address _beneficiaryAddress,
         address _tokenAddress,
         uint256 _delay
@@ -57,6 +53,8 @@ contract Tezoro {
         if (_delay == 0) revert ZeroDelay();
    
         creator = _creatorAddress;
+        executor1 = _executor1;
+        executor2 = _executor2;
         owner = _ownerAddress;
         beneficiary = _beneficiaryAddress;
         tokenAddress = _tokenAddress;
@@ -70,8 +68,14 @@ contract Tezoro {
 
     function changeState(uint8 _state) 
         external
-        isOwnerOrCreator
-    {
+    {   
+        if ((executor1 != address(0) && msg.sender == executor1) || (executor2 != address(0) && msg.sender == executor2)) {
+            if (!((state == 0 && _state == 1) || (state == 1 && _state == 3))) 
+                revert IllegalExecutorStateChange();
+        }
+        else if (msg.sender != creator && msg.sender != owner)
+            revert NotOwnerOrCreator();
+
         if (state == _state) revert IllegalStateChange();
         if (state >= 3) revert NotActive(); // states (3), (4) are terminal
         if (state == 0) { // from INIT STATE (0)
@@ -95,7 +99,7 @@ contract Tezoro {
                     ? allowance
                     : ownerBalance;
                 if (amountToTransfer == 0) revert ZeroTransferAmount();
-                ERC20(tokenAddress).safeTransferFrom(
+                token.safeTransferFrom(
                     owner,
                     beneficiary,
                     amountToTransfer

@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./Tezoro.sol";
+import "./TezoroT.sol";
 
 contract Withdrawable is Ownable {
     error NoFundsToWithdraw();
@@ -27,7 +27,7 @@ contract Withdrawable is Ownable {
 }
 
 contract TezoroService is Withdrawable {
-    uint8 public constant version = 2;
+    uint8 public constant version = 3;
 
     uint256 public serviceFee;
     address public creatorAddress;
@@ -62,6 +62,8 @@ contract TezoroService is Withdrawable {
     function deployBackupContract(
         address _beneficiaryAddress,
         address _tokenAddress,
+        address _executor1,
+        address _executor2,
         bytes32 _userHash,
         bytes32 _metaId
     ) external payable {
@@ -72,6 +74,8 @@ contract TezoroService is Withdrawable {
         Tezoro backupContract = new Tezoro(
             creatorAddress,
             msg.sender,
+            _executor1,
+            _executor2,
             _beneficiaryAddress,
             _tokenAddress,
             delay
