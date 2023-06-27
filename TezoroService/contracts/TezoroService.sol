@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./TezoroT.sol";
+import "./Tezoro.sol";
 
 contract Withdrawable is Ownable {
     error NoFundsToWithdraw();
@@ -87,7 +87,6 @@ contract TezoroService is Withdrawable {
             _userHash,
             _metaId
         );
-
     }
     
     function setFee(uint256 _newServiceFee) external onlyOwner {

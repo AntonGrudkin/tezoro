@@ -118,8 +118,8 @@ contract Tezoro {
             }
             else revert IllegalStateChange();
         }
-        state = _state;
         timestamp = block.timestamp + delay;
+        state = _state;
         emit StateChanged(state);
     }
 }
