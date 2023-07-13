@@ -73,7 +73,7 @@ Here is a table describing possible state changes;
 |restore|1|3| after delay | C, O, E1, E1 |
 |cancel restore| 1 | 0 | before delay | C, O 
 |start revocation| 0 | 2 | anytime | C, O
-|start revocation| 0 | 2 | before delay | C, O
+|start revocation| 1 | 2 | before delay | C, O
 |cancel revocation| 2 | 0 | before delay | C, O
 |revoke (*)| 2 | 4 | after delay | C, O
 
