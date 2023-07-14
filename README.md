@@ -116,8 +116,70 @@ function deployBackupContract(
 	bytes32 _metaId
 )
 ```
-## withdrawal process
 
-- Multisig owner wallet is allowed to initiate withdrawal by calling `initiateWithdrawal()` method;
-- after `withdrawalDelay` period past this call, this owner is allowed to call `withdraw()` method which will tranfer contract balance to its address.
-- alternatively, owner may cancell initiated withdrawal.
+## Ownership and withdrawals
+`TezoroService` is ownable contract. Owner of the contract is only privileged address allowed to call `withdraw()` function which transfers entire contract balance to the owner address. 
+
+To mitigate centralisation risks, ownership is delegated to multi signature wallet via time lock controller. In order to be able to receive the assets to address other than TimeLock Controller (where they cannot be withdrawn from), one more contract `Transmitter` is used.  
+
+### Transmitter contract
+`Transmitter` contract is an ownable contract which has two fields: `address target` and `address receiver`. 
+
+Use case of this contract assumes that `target` contract 
+- is ownable and its ownership is transfered to the  `Transmitter`;
+- has `withdraw()` method which sends contract balance to the contract owner address.
+
+Owner of the `Transmitter` contract is the only address privileged to call `withdraw()` method which will call `withdraw()`  method in `target` contract. After that, when `target` contract sends assets to `Transmitter`, it immediately sends it to `receiver` address: 
+```mermaid
+stateDiagram  
+state  "Transmitter"  as  tr
+state  "Receiver"  as  r
+state  "Target" as tar
+state  "Owner" as o
+
+[*] --> o
+o --> tr: 1. withdraw()
+tr --> tar: 2. withdraw()
+tar --> tr: 3. receive()
+tr --> r: 4. receive()
+r --> [*]
+```
+### Ownership configuration
+
+`TezoroService` has following ownership configuration implemented:
+
+```mermaid
+stateDiagram  
+state  "TezoroService"  as  ts
+state  "Transmitter"  as  tr
+state  "TimeLock Controller"  as  tl
+state  "Multi Signature" as ms
+ms --> tl: Proposal
+tl --> tr: Owner
+tr --> ts: Owner
+```
+
+### withdrawal process
+
+Diagram below shows withdrawal process steps:
+
+```mermaid
+stateDiagram  
+state  "TezoroService"  as  ts
+state  "Transmitter"  as  tr
+state  "TimeLock Controller"  as  tl
+state  "Multi Signature" as ms
+
+[*] --> ms
+ms --> tl: 1. propose withdraw
+tl --> tr: 2. execute withdraw()
+tr --> ts: 3. call withdraw()
+ts --> tr: 4. receive()
+tr --> ms: 5. receive()
+```
+
+They are:
+1. Multi signature wallet creates (using 2/3 votes) proposal of calling `withdraw()` method in Transmitter contract via TimeLock Controller;
+2. After TimeLock delay (48 h), proposed transaction can be executed; this triggers `withdraw()` method in Transmitter contract
+3. Transmitter contract calls `withdraw()` method in `TezoroService` contract, receives assets and sends it to multi signature wallet.
+
