@@ -27,7 +27,8 @@ contract Withdrawable is Ownable {
 }
 
 contract TezoroService is Withdrawable {
-    uint8 public constant version = 3;
+    uint8 public constant version = 5;
+    uint256 public constant MIN_DELAY = 2592000;
 
     uint256 public serviceFee;
     address public creatorAddress;
@@ -37,6 +38,7 @@ contract TezoroService is Withdrawable {
     error InsufficientPaymentForService();
     error ZeroAddress();
     error ZeroFee();
+    error InsufficientDelay();
 
     event DeployedBackupContract(
         address indexed backupContract,
@@ -49,6 +51,7 @@ contract TezoroService is Withdrawable {
         uint256 _initialServiceFee,
         uint256 _delay
     ) {
+        if (_delay < MIN_DELAY) revert InsufficientDelay();
         serviceFee = _initialServiceFee;
         creatorAddress = msg.sender;
         delay = _delay;
