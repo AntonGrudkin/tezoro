@@ -2,34 +2,41 @@
 
 pragma solidity ^0.8.4;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./Tezoro.sol";
 
-contract TezoroService {
-    uint8 public constant version = 4;
-    uint256 public immutable serviceFee;
-    address public immutable creator;
-    address public immutable multiSigOwner;
+contract Withdrawable is Ownable {
+    error NoFundsToWithdraw();
+    error NoTokensToWithdraw();
+    error TransferFailed();
+
+    function withdraw() external onlyOwner {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert NoFundsToWithdraw();
+        (bool success, ) = payable(owner()).call{value: balance}("");
+        if (!success) revert TransferFailed();
+    }
+
+    function withdrawToken(address _tokenAddress) external onlyOwner {
+        IERC20 token = IERC20(_tokenAddress);
+        uint256 tokenBalance = token.balanceOf(address(this));
+        if (tokenBalance == 0) revert NoTokensToWithdraw();
+        token.transfer(owner(), tokenBalance);
+    }
+}
+
+contract TezoroService is Withdrawable {
+    uint8 public constant version = 3;
+
+    uint256 public serviceFee;
+    address public creatorAddress;
+
     uint256 public immutable delay;
-    uint256 public immutable withdrawalDelay;
-    uint256 public withdrawalTimestamp;
 
     error InsufficientPaymentForService();
     error ZeroAddress();
-    error NoFundsToWithdraw();
-    error TransferFailed();
-    error NotOwner();
-    error WithdrawalAlreadyInitiated();
-    error WithdrawalNotInitiated();
-    error TooEarly();
-
-    modifier onlyOwner() {
-        if (msg.sender != multiSigOwner) revert NotOwner();
-        _;
-    }
-
-    event WithdrawalInitiated();
-    event WithdrawalCancelled();
-    event Withdrawn();
+    error ZeroFee();
 
     event DeployedBackupContract(
         address indexed backupContract,
@@ -39,18 +46,17 @@ contract TezoroService {
     );
 
     constructor(
-        address _multiSigOwner,
         uint256 _initialServiceFee,
-        uint256 _delay,
-        uint256 _withdrawalDelay
+        uint256 _delay
     ) {
-        if (_multiSigOwner == address(0)) revert ZeroAddress();
-        multiSigOwner = _multiSigOwner;
-        creator = msg.sender;
         serviceFee = _initialServiceFee;
+        creatorAddress = msg.sender;
         delay = _delay;
-        withdrawalDelay = _withdrawalDelay;
-        withdrawalTimestamp = 0;
+    }
+
+    function setCreator(address _newCreatorAddress) external onlyOwner {
+        if (_newCreatorAddress == address(0)) revert ZeroAddress();
+        creatorAddress = _newCreatorAddress;
     }
 
     function deployBackupContract(
@@ -66,7 +72,7 @@ contract TezoroService {
             revert ZeroAddress();
 
         Tezoro backupContract = new Tezoro(
-            creator,
+            creatorAddress,
             msg.sender,
             _executor1,
             _executor2,
@@ -83,26 +89,8 @@ contract TezoroService {
         );
     }
     
-    function initiateWithdrawal() external onlyOwner {
-        if (withdrawalTimestamp != 0) revert WithdrawalAlreadyInitiated();
-        withdrawalTimestamp = block.timestamp + withdrawalDelay;
-        emit WithdrawalInitiated();
-    }
-
-    function cancelWithdrawal() external onlyOwner {
-        if (withdrawalTimestamp == 0) revert WithdrawalNotInitiated();
-        withdrawalTimestamp = 0;
-        emit WithdrawalCancelled();
-    }
-
-    function withdraw() external onlyOwner {
-        if (withdrawalTimestamp == 0) revert WithdrawalNotInitiated();
-        if (block.timestamp < withdrawalTimestamp) revert TooEarly();
-
-        uint256 balance = address(this).balance;
-        if (balance == 0) revert NoFundsToWithdraw();
-        (bool success, ) = payable(multiSigOwner).call{value: balance}("");
-        if (!success) revert TransferFailed();
-        emit Withdrawn();
+    function setFee(uint256 _newServiceFee) external onlyOwner {
+        if (_newServiceFee == 0) revert ZeroFee();
+        serviceFee = _newServiceFee;
     }
 }
