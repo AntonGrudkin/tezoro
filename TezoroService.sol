@@ -11,18 +11,18 @@ contract Withdrawable is Ownable {
     error NoTokensToWithdraw();
     error TransferFailed();
 
-    function withdraw() external onlyOwner {
+    function withdraw(address _receiver) external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance == 0) revert NoFundsToWithdraw();
-        (bool success, ) = payable(owner()).call{value: balance}("");
+        (bool success, ) = payable(_receiver).call{value: balance}("");
         if (!success) revert TransferFailed();
     }
 
-    function withdrawToken(address _tokenAddress) external onlyOwner {
+    function withdrawToken(address _receiver, address _tokenAddress) external onlyOwner {
         IERC20 token = IERC20(_tokenAddress);
         uint256 tokenBalance = token.balanceOf(address(this));
         if (tokenBalance == 0) revert NoTokensToWithdraw();
-        token.transfer(owner(), tokenBalance);
+        token.transfer(_receiver, tokenBalance);
     }
 }
 
